@@ -27,6 +27,10 @@ class TaskContext:
     dependencies: List[str] = field(default_factory=list)
     results: Dict[str, Any] = field(default_factory=dict)
     cancellation_token: CancellationToken = field(default_factory=CancellationToken)
+    retries: int = 0
+    max_retries: int = 3
+    retry_delay: float = 1.0
+    last_error: Optional[str] = None
 
     def is_timed_out(self) -> bool:
         if not self.timeout or not self.started_at:
@@ -108,6 +112,40 @@ class TaskManager:
         task.completed_at = datetime.now()
         task.cancellation_token.cancel()
         await self._notify_state_change(task)
+        
+        # Cancel dependent tasks
+        await self.cancel_dependent_tasks(task_id)
+
+    async def retry_task(self, task_id: str) -> None:
+        """Retry a failed task"""
+        task = self.get_task(task_id)
+        if not task:
+            raise ValueError(f"Task {task_id} not found")
+            
+        if task.retries >= task.max_retries:
+            raise ValueError(f"Task {task_id} exceeded retry limit")
+            
+        task.retries += 1
+        task.state = TaskState.PENDING
+        task.started_at = None
+        task.completed_at = None
+        
+        await asyncio.sleep(task.retry_delay)
+        await self.start_task(task_id)
+
+    async def get_dependent_tasks(self, task_id: str) -> list[str]:
+        """Get tasks that depend on given task"""
+        dependent_tasks = []
+        for task in self._tasks.values():
+            if task_id in task.dependencies:
+                dependent_tasks.append(task.task_id)
+        return dependent_tasks
+
+    async def cancel_dependent_tasks(self, task_id: str) -> None:
+        """Cancel all tasks that depend on the given task"""
+        dependent_tasks = await self.get_dependent_tasks(task_id)
+        for dep_id in dependent_tasks:
+            await self.cancel_task(dep_id)
 
     def register_state_callback(
         self,

@@ -8,6 +8,9 @@ class ToolParameter(BaseModel):
     required: bool = True
     default: Optional[Any] = None
     enum: Optional[List[Any]] = None
+    items: Optional[Dict[str, Any]] = None  # For array types
+    properties: Optional[Dict[str, Any]] = None  # For object types
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class ToolSchema(BaseModel):
     """Schema definition for a tool"""

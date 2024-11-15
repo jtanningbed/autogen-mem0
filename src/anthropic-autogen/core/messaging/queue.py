@@ -14,6 +14,8 @@ class MessageQueue:
         self._subscriptions: Dict[AgentId, Set[MessageCategory]] = defaultdict(set)
         self._pending_messages: Set[str] = set()
         self._completion_events: Dict[str, asyncio.Event] = {}
+        self._delivery_tracking: Dict[str, Set[AgentId]] = {}
+        self._delivery_timeouts: Dict[str, float] = {}
         self._logger = logging.getLogger(__name__)
 
     async def publish(
