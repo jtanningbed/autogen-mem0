@@ -142,3 +142,91 @@ class WorkflowManager:
     async def stop(self) -> None:
         """Stop all components"""
         await self.claude_agent.stop()
+from typing import Dict, List, Optional, Any
+from datetime import datetime
+
+from autogen_core.base import CancellationToken
+
+from .schema import WorkflowDefinition, WorkflowState
+from .executor import AnthropicWorkflowExecutor
+from .parallel import ParallelWorkflowExecutor
+from .persistence import WorkflowStateStore
+
+class WorkflowManager:
+    """Enhanced workflow manager with parallel execution and state persistence"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.parallel_executor = ParallelWorkflowExecutor(self.executor)
+        self.state_store = WorkflowStateStore()
+        
+    async def execute_workflow(
+        self,
+        workflow: WorkflowDefinition,
+        context: Optional[Dict[str, Any]] = None,
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> Dict[str, Any]:
+        """Execute a workflow with state tracking"""
+        # Initialize workflow state
+        state = WorkflowState(
+            workflow_id=workflow.id,
+            status="running",
+            context=context or {}
+        )
+        self.state_store.save_state(state)
+        
+        try:
+            # Execute workflow steps in parallel where possible
+            results = await self.parallel_executor.execute_parallel(
+                workflow.steps,
+                state.context,
+                state,
+                cancellation_token
+            )
+            
+            state.status = "completed"
+            state.end_time = datetime.now()
+            self.state_store.save_state(state)
+            
+            return results
+            
+        except Exception as e:
+            state.status = "failed"
+            state.end_time = datetime.now()
+            state.context["error"] = str(e)
+            self.state_store.save_state(state)
+            raise
+            
+    async def resume_workflow(
+        self,
+        workflow_id: str,
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Resume a failed or cancelled workflow"""
+        state = self.state_store.load_state(workflow_id)
+        if not state or state.status == "completed":
+            return None
+            
+        # Get workflow definition
+        workflow = self._get_workflow_definition(workflow_id)
+        if not workflow:
+            raise ValueError(f"Workflow {workflow_id} not found")
+            
+        # Filter out completed steps
+        remaining_steps = [
+            step for step in workflow.steps
+            if step.id not in state.completed_steps
+        ]
+        
+        # Resume execution
+        return await self.execute_workflow(
+            WorkflowDefinition(
+                id=workflow_id,
+                name=workflow.name,
+                description=workflow.description,
+                version=workflow.version,
+                steps=remaining_steps
+            ),
+            state.context,
+            cancellation_token
+        )
