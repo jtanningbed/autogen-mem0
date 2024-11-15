@@ -2,6 +2,7 @@ from typing import Dict, Optional
 from ..core.orchestration.base import BaseOrchestrator
 from ..core.tools.base import BaseTool
 from ..core.task import TaskContext
+from ..core.messaging import TaskMessage
 from autogen_core.base import CancellationToken
 
 class ToolOrchestrator(BaseOrchestrator):
