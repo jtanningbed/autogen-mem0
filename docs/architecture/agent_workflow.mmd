@@ -1,0 +1,55 @@
+graph TB
+    subgraph Workflow Management
+        WM[WorkflowManager] --> WE[WorkflowExecutor]
+        WM --> PE[ParallelExecutor]
+        WM --> SS[StateStore]
+        WE --> Steps[Step Execution]
+    end
+
+    subgraph Agents
+        BA[BaseAgent] --> CA[ChatAgent]
+        BA --> TA[TaskAgent]
+        CA --> Claude[ClaudeAgent]
+        TA --> ToolA[ToolAgent]
+    end
+
+    subgraph Tools
+        BT[BaseTool] --> FT[FileTool]
+        BT --> ST[ShellTool]
+        BT --> CT[CustomTools]
+    end
+
+    subgraph Messaging
+        MQ[MessageQueue] --> MSG[Messages]
+        MSG --> ChatMsg[ChatMessage]
+        MSG --> TaskMsg[TaskMessage]
+        MSG --> CtrlMsg[ControlMessage]
+    end
+
+    subgraph Task Management
+        TM[TaskManager] --> TC[TaskContext]
+        TC --> TS[TaskState]
+    end
+
+    %% Connections between components
+    WE --> |Uses| MQ
+    WE --> |Executes| TA
+    TA --> |Uses| BT
+    CA --> |Sends| ChatMsg
+    ToolA --> |Sends| TaskMsg
+    TM --> |Manages| TC
+    MQ --> |Routes to| BA
+
+    %% Data flow
+    Steps --> |Creates| TaskMsg
+    TaskMsg --> |Handled by| TA
+    TA --> |Executes| BT
+    BT --> |Returns| ToolResponse
+
+    classDef primary fill:#f9f,stroke:#333,stroke-width:2px
+    classDef secondary fill:#bbf,stroke:#333,stroke-width:2px
+    classDef tertiary fill:#dfd,stroke:#333,stroke-width:2px
+
+    class WM,WE,PE primary
+    class BA,CA,TA,Claude,ToolA secondary
+    class BT,FT,ST,CT tertiary
