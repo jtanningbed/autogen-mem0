@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
+import asyncio
 
 from autogen_core.base import AgentId, CancellationToken
 from enum import Enum
