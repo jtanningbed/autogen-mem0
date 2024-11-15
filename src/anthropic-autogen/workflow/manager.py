@@ -230,3 +230,66 @@ class WorkflowManager:
             state.context,
             cancellation_token
         )
+from typing import Dict, Optional
+from autogen_core.base import CancellationToken
+from .executor import WorkflowExecutor
+from .parallel import ParallelExecutor
+from .state import StateStore, WorkflowState
+from .step import WorkflowStep
+
+class WorkflowManager:
+    """Manages workflow definitions and execution"""
+    
+    def __init__(
+        self,
+        executor: WorkflowExecutor,
+        parallel_executor: ParallelExecutor,
+        state_store: StateStore
+    ):
+        self.executor = executor
+        self.parallel_executor = parallel_executor
+        self.state_store = state_store
+        self._workflows: Dict[str, list[WorkflowStep]] = {}
+        
+    def register_workflow(
+        self,
+        workflow_id: str,
+        steps: list[WorkflowStep]
+    ) -> None:
+        """Register a workflow definition"""
+        self._workflows[workflow_id] = steps
+        
+    async def execute_workflow(
+        self,
+        workflow_id: str,
+        parallel: bool = False,
+        initial_state: Optional[dict] = None,
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> WorkflowState:
+        """Execute a workflow by ID"""
+        if workflow_id not in self._workflows:
+            raise ValueError(f"Workflow {workflow_id} not found")
+            
+        steps = self._workflows[workflow_id]
+        
+        if parallel:
+            return await self.parallel_executor.execute_workflow(
+                workflow_id,
+                steps,
+                initial_state,
+                cancellation_token
+            )
+        else:
+            return await self.executor.execute_workflow(
+                workflow_id,
+                steps,
+                initial_state,
+                cancellation_token
+            )
+            
+    async def get_workflow_state(
+        self,
+        workflow_id: str
+    ) -> Optional[WorkflowState]:
+        """Get current state of a workflow"""
+        return await self.state_store.get_state(workflow_id)

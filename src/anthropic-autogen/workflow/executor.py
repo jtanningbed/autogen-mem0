@@ -343,3 +343,76 @@ class WorkflowExecutor:
     ) -> Any:
         # Implementation details to be added
         pass
+from typing import Optional, List
+from autogen_core.base import CancellationToken
+from ..core.task import TaskManager
+from ..core.messaging import MessageQueue
+from .step import WorkflowStep, StepResult
+from .state import StateStore, WorkflowState
+
+class WorkflowExecutor:
+    """Executes workflow steps in sequence"""
+    
+    def __init__(
+        self,
+        task_manager: TaskManager,
+        message_queue: MessageQueue,
+        state_store: StateStore
+    ):
+        self.task_manager = task_manager
+        self.message_queue = message_queue
+        self.state_store = state_store
+        
+    async def execute_workflow(
+        self,
+        workflow_id: str,
+        steps: List[WorkflowStep],
+        initial_state: Optional[dict] = None,
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> WorkflowState:
+        """Execute a workflow"""
+        state = WorkflowState(
+            workflow_id=workflow_id,
+            current_step=0,
+            total_steps=len(steps),
+            state=initial_state or {}
+        )
+        
+        await self.state_store.save_state(workflow_id, state)
+        
+        for i, step in enumerate(steps):
+            if cancellation_token and cancellation_token.cancelled:
+                break
+                
+            state.current_step = i
+            result = await self._execute_step(step, state, cancellation_token)
+            
+            if not result.success:
+                state.status = "failed"
+                state.error = result.error
+                break
+                
+            state.state.update(result.state_updates or {})
+            await self.state_store.save_state(workflow_id, state)
+            
+        return state
+        
+    async def _execute_step(
+        self,
+        step: WorkflowStep,
+        state: WorkflowState,
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> StepResult:
+        """Execute a single workflow step"""
+        try:
+            return await step.execute(
+                state=state.state,
+                task_manager=self.task_manager,
+                message_queue=self.message_queue,
+                cancellation_token=cancellation_token
+            )
+        except Exception as e:
+            return StepResult(
+                success=False,
+                error=str(e)
+            )

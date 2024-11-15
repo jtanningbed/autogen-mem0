@@ -116,3 +116,86 @@ class ParallelWorkflowExecutor:
             if not task.done():
                 task.cancel()
         self._running_tasks.clear()
+from typing import Optional, List
+import asyncio
+from autogen_core.base import CancellationToken
+from ..core.task import TaskManager
+from ..core.messaging import MessageQueue
+from .step import WorkflowStep, StepResult
+from .state import StateStore, WorkflowState
+
+class ParallelExecutor:
+    """Executes workflow steps in parallel"""
+    
+    def __init__(
+        self,
+        task_manager: TaskManager,
+        message_queue: MessageQueue,
+        state_store: StateStore,
+        max_parallel: int = 10
+    ):
+        self.task_manager = task_manager
+        self.message_queue = message_queue
+        self.state_store = state_store
+        self.max_parallel = max_parallel
+        
+    async def execute_workflow(
+        self,
+        workflow_id: str,
+        steps: List[WorkflowStep],
+        initial_state: Optional[dict] = None,
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> WorkflowState:
+        """Execute workflow steps in parallel"""
+        state = WorkflowState(
+            workflow_id=workflow_id,
+            current_step=0,
+            total_steps=len(steps),
+            state=initial_state or {}
+        )
+        
+        await self.state_store.save_state(workflow_id, state)
+        
+        # Create tasks for parallel execution
+        tasks = []
+        semaphore = asyncio.Semaphore(self.max_parallel)
+        
+        async def execute_step(step: WorkflowStep) -> StepResult:
+            async with semaphore:
+                return await step.execute(
+                    state=state.state,
+                    task_manager=self.task_manager,
+                    message_queue=self.message_queue,
+                    cancellation_token=cancellation_token
+                )
+                
+        for step in steps:
+            if cancellation_token and cancellation_token.cancelled:
+                break
+                
+            task = asyncio.create_task(execute_step(step))
+            tasks.append(task)
+            
+        # Wait for all tasks to complete
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results
+        failed = False
+        for result in results:
+            if isinstance(result, Exception):
+                failed = True
+                state.error = str(result)
+                break
+                
+            if not result.success:
+                failed = True
+                state.error = result.error
+                break
+                
+            if result.state_updates:
+                state.state.update(result.state_updates)
+                
+        state.status = "failed" if failed else "completed"
+        await self.state_store.save_state(workflow_id, state)
+        
+        return state
