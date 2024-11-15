@@ -252,3 +252,94 @@ class AnthropicWorkflowExecutor:
         elif isinstance(obj, list):
             return [self._replace_context_var(item, var, value) for item in obj]
         return obj
+from typing import Dict, Any, Optional
+from autogen_core.base import CancellationToken
+from ..core.orchestration.orchestrator import AgentOrchestrator
+from ..core.tools.registry import ToolRegistry
+
+class WorkflowStep:
+    """Represents a step in a workflow"""
+    def __init__(self, step_id: str, step_type: str, input_params: Dict[str, Any]):
+        self.id = step_id
+        self.type = step_type
+        self.input = input_params
+
+class WorkflowExecutor:
+    """Executes workflow steps using agents and tools"""
+    
+    def __init__(
+        self,
+        orchestrator: AgentOrchestrator,
+        tool_registry: ToolRegistry
+    ):
+        self.orchestrator = orchestrator
+        self.tool_registry = tool_registry
+        
+    async def execute_step(
+        self,
+        step: WorkflowStep,
+        context: Dict[str, Any],
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> Any:
+        """Execute a workflow step"""
+        if step.type == "chat":
+            return await self._execute_chat_step(step, context, cancellation_token)
+        elif step.type == "tool":
+            return await self._execute_tool_step(step, context, cancellation_token)
+        elif step.type == "parallel":
+            return await self._execute_parallel_step(step, context, cancellation_token)
+        else:
+            raise ValueError(f"Unknown step type: {step.type}")
+            
+    async def _execute_chat_step(
+        self,
+        step: WorkflowStep,
+        context: Dict[str, Any],
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> Any:
+        # Create or get Claude agent
+        agent_id = f"claude_{step.id}"
+        if not self.orchestrator.get_agent(agent_id):
+            await self.orchestrator.start_agent(
+                "claude",
+                agent_id,
+                step.input
+            )
+            
+        # Send message and wait for response
+        # Implementation details to be added
+        pass
+        
+    async def _execute_tool_step(
+        self,
+        step: WorkflowStep,
+        context: Dict[str, Any],
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> Any:
+        # Get tool instance
+        tool_name = step.input["tool"]
+        tool_class = self.tool_registry.get_tool(tool_name)
+        if not tool_class:
+            raise ValueError(f"Unknown tool: {tool_name}")
+            
+        # Create tool agent
+        agent_id = f"tool_{step.id}"
+        if not self.orchestrator.get_agent(agent_id):
+            await self.orchestrator.start_agent(
+                "tool",
+                agent_id,
+                {"tool": tool_class()}
+            )
+            
+        # Execute tool
+        # Implementation details to be added
+        pass
+            
+    async def _execute_parallel_step(
+        self,
+        step: WorkflowStep,
+        context: Dict[str, Any],
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> Any:
+        # Implementation details to be added
+        pass
