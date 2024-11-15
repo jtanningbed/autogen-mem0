@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from autogen_core.base import CancellationToken
 from .schema import WorkflowStep, WorkflowState
-from .executor import WorkflowStepResult
+from .executor import AnthropicWorkflowExecutor
 
 @dataclass
 class StepDependencyGraph:
@@ -17,7 +17,7 @@ class StepDependencyGraph:
 class ParallelWorkflowExecutor:
     """Handles concurrent execution of workflow steps"""
     
-    def __init__(self, executor):
+    def __init__(self, executor: AnthropicWorkflowExecutor):
         self.executor = executor
         self._running_tasks: Dict[str, asyncio.Task] = {}
         

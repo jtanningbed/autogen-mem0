@@ -1,21 +1,26 @@
-from .executor import WorkflowExecutor
+from .executor import AnthropicWorkflowExecutor
 from .manager import WorkflowManager
-from .parallel import ParallelExecutor
-from .state import StateStore, WorkflowState
-from .step import WorkflowStep, StepResult, StepStatus
+from .parallel import ParallelWorkflowExecutor
+from .persistence import WorkflowStateStore
+from .schema import (
+    WorkflowDefinition,
+    WorkflowState,
+    WorkflowStep,
+    WorkflowStepInput
+)
 
 __all__ = [
     # Core workflow components
-    "WorkflowExecutor",
+    "AnthropicWorkflowExecutor",
     "WorkflowManager",
-    "ParallelExecutor",
+    "ParallelWorkflowExecutor",
     
     # State management
-    "StateStore",
-    "WorkflowState",
+    "WorkflowStateStore",
     
-    # Step handling
+    # Schema
+    "WorkflowDefinition",
+    "WorkflowState",
     "WorkflowStep",
-    "StepResult",
-    "StepStatus"
+    "WorkflowStepInput"
 ]

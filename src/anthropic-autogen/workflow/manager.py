@@ -155,10 +155,15 @@ from .persistence import WorkflowStateStore
 class WorkflowManager:
     """Enhanced workflow manager with parallel execution and state persistence"""
     
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.parallel_executor = ParallelWorkflowExecutor(self.executor)
-        self.state_store = WorkflowStateStore()
+    def __init__(
+        self,
+        executor: AnthropicWorkflowExecutor,
+        parallel_executor: Optional[ParallelWorkflowExecutor] = None,
+        state_store: Optional[WorkflowStateStore] = None
+    ):
+        self.executor = executor
+        self.parallel_executor = parallel_executor or ParallelWorkflowExecutor(executor)
+        self.state_store = state_store or WorkflowStateStore()
         
     async def execute_workflow(
         self,
