@@ -1,3 +1,9 @@
-from .orchestrator import AgentOrchestrator
+"""
+Agent orchestration and coordination.
+"""
 
-__all__ = ["AgentOrchestrator"]
+from .orchestrator import Orchestrator
+
+__all__ = [
+    'Orchestrator'
+]

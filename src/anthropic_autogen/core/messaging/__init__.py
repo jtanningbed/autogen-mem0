@@ -1,18 +1,23 @@
-from .messages import (
-    Message, ChatMessage, TaskMessage, ControlMessage,
-    ChatContent, BaseMessage
+"""
+Message types and handling for agent communication.
+"""
+
+from .base import (
+    ChatMessage,
+    TaskMessage,
+    ToolMessage,
+    UserMessage,
+    AssistantMessage,
+    SystemMessage,
+    MessageCommon
 )
-from .types import MessageCategory, MessagePriority
-from .queue import MessageQueue
 
 __all__ = [
-    "Message",
-    "ChatMessage",
-    "TaskMessage", 
-    "ControlMessage",
-    "ChatContent",
-    "BaseMessage",
-    "MessageCategory",
-    "MessagePriority",
-    "MessageQueue"
+    'ChatMessage',
+    'TaskMessage',
+    'ToolMessage',
+    'UserMessage',
+    'AssistantMessage',
+    'SystemMessage',
+    'MessageCommon'
 ]

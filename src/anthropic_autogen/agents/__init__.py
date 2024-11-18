@@ -1,4 +1,23 @@
-from .claude_agent import ClaudeAgent
-from .tool_agent import ToolExecutionAgent
+"""
+Agent implementations for the Anthropic AutoGen framework.
+"""
 
-__all__ = ["ClaudeAgent", "ToolExecutionAgent"]
+from .base import BaseToolAgent, BaseUserProxyAgent
+from .specialized import (
+    CodeAssistantAgent,
+    DataAnalysisAssistant,
+    WebUIUserProxy,
+    WorkflowOrchestrator,
+)
+
+__all__ = [
+    # Base Agents
+    "BaseToolAgent",
+    "BaseUserProxyAgent",
+    
+    # Specialized Agents
+    "CodeAssistantAgent",
+    "DataAnalysisAssistant",
+    "WebUIUserProxy",
+    "WorkflowOrchestrator",
+]

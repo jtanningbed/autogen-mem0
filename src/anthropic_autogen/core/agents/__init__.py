@@ -1,6 +1,23 @@
-from .base import BaseAgent
-from .chat_agent import ChatAgent
-from .task_agent import TaskAgent
-from .factory import AgentFactory
+"""
+Core agent implementations.
+"""
 
-__all__ = ["BaseAgent", "ChatAgent", "TaskAgent", "AgentFactory"]
+from .base import (
+    BaseAgent,
+    MemoryAgent,
+    ConversationalAgent
+)
+from .tool import (
+    BaseToolAgent,
+    MemoryToolAgent,
+    ConversationalToolAgent
+)
+
+__all__ = [
+    'BaseAgent',
+    'MemoryAgent',
+    'ConversationalAgent',
+    'BaseToolAgent',
+    'MemoryToolAgent',
+    'ConversationalToolAgent'
+]
