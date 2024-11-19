@@ -7,8 +7,8 @@ from autogen_core.application import SingleThreadedAgentRuntime
 
 from anthropic_autogen.core.messaging import ChatMessage, ToolMessage
 
-from .test_models import GroupChatMessage, TestTool
-from .test_agents import TestAgent, ToolOnlyAgent, ChatOnlyAgent
+from ..test_models import GroupChatMessage, TestTool
+from ..test_agents import TestAgent, ToolOnlyAgent, ChatOnlyAgent
 
 
 class TestBaseAgentIntegration:
