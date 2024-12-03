@@ -79,35 +79,6 @@ class BaseMemoryAgent(BaseChatAgent):
         """Types of messages this agent can produce."""
         return [AutogenTextMessage, AutogenMultiModalMessage]
 
-    async def store(
-        self, 
-        content: Any, 
-        metadata: Optional[Dict] = None,
-    ) -> None:
-        """Store content in memory."""
-        if self._memory:
-            await self._memory.add(
-                messages=content,
-                metadata=metadata,
-                user_id=self.name,
-                filters={"user_id": self.name}
-            )
-
-    async def recall(
-        self, 
-        query: str,
-        limit: int = 5
-    ) -> List[Any]:
-        """Recall content from memory."""
-        if self._memory:
-            return await self._memory.search(
-                query=query,
-                user_id=self.name,
-                filters={"user_id": self.name},
-                limit=limit
-            )
-        return []
-
     async def on_messages(
         self,
         messages: Sequence[AutogenChatMessage],
