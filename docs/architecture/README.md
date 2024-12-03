@@ -2,134 +2,85 @@
 
 ## System Overview
 
-The Anthropic-AutoGen system extends AutoGen's agent framework with enhanced memory capabilities through mem0 integration. We build upon AutoGen's core components while adding specialized features for both event-driven and conversational workflows.
+Autogen-mem0 extends Microsoft's AutoGen v0.4 framework with enhanced memory capabilities through mem0 integration. The system is built around core adapters and configurations that enable seamless integration between AutoGen's agent framework and various LLM providers.
 
 ## Core Dependencies
 
 ### AutoGen Integration
-- Agent base classes:
-  - `RoutedAgent`: Powers our event-driven workflows
-  - `AssistantAgent`: Foundation for conversational agents
-- Message protocols
-- Tool execution patterns
+- Agent base classes from autogen_core and autogen_agentchat
+- Message protocols aligned with AutoGen's design
+- Tool execution patterns following AutoGen standards
 
 ### Memory Enhancement
-- `mem0`: Memory framework integrated with AutoGen agents
+- `mem0`: Primary memory framework
   - Vector storage for semantic search
   - Key-value operations for state
   - Context management
 
-### External Dependencies
-- `anthropic`: Anthropic API integration
-- Additional utilities:
-  - Vector storage
-  - Key-value operations
-  - HTTP clients
+### Message Adaptation
+- Adapter pattern for message conversion
+- Support for multiple message formats
+- Factory pattern for adapter management
 
 ## Component Details
 
 ### Memory Layer
-- Built on mem0 framework
-- Enhances AutoGen agents with:
-  ```python
-  from mem0 import VectorStore, KeyValueStore, SQLStore
-  from anthropic_autogen.core.memory import MemoryManager
-  ```
+- Configured through the MemoryManager
+- Integrated with mem0
+- Context-aware operations
 
 ### Agent Layer
-- Extends AutoGen's agent classes:
+- Core agent implementations:
   ```python
-  from autogen_core.components import RoutedAgent
-  from autogen_agentchat import AssistantAgent
-  from anthropic_autogen.core.agents import (
+  from autogen_mem0.core.agents import (
       EventAgent,           # Event-driven workflows
       BaseMemoryAgent,      # Memory-enabled tasks
       MemoryEnabledAssistant  # Full featured agent
   )
   ```
-- Message adaptation:
+
+### Message Adaptation
+- Centralized adapter system:
   ```python
-  from anthropic_autogen.core.agents import MessageAdapter
-  # Synchronizes our messages with AutoGen format
+  from autogen_mem0.core.adapters.messages import (
+      MessageAdapter,
+      AutogenMessageAdapter,
+      AnthropicRequestAdapter,
+      AnthropicResponseAdapter
+  )
   ```
 
 ### Tool Layer
-- Compatible with AutoGen's tool protocols:
-  ```python
-  from autogen_core.components.tools import (
-      Tool,
-      ToolSchema
-  )
-  from anthropic_autogen.core.tools import BaseTool
-  ```
-- Custom tools:
-  - FileTool: File operations
-  - ShellTool: Command execution
-  - WebTool: Web interactions
-
-### Message System
-- Custom message types with AutoGen compatibility:
-  ```python
-  from anthropic_autogen.core.messaging import (
-      Message,
-      SystemMessage,
-      UserMessage,
-      AssistantMessage,
-      ToolCallMessage,
-      ToolCallResultMessage
-  )
-  ```
-- Message synchronization:
-  ```python
-  # Convert between formats
-  our_message = MessageAdapter.from_agent_message(autogen_msg)
-  autogen_message = our_message.to_autogen_message()
-  ```
-
-## Workflow Patterns
-
-### Event-Driven Workflows
-- Powered by EventAgent (extends RoutedAgent)
-- Asynchronous pub/sub messaging
-- Parallel task execution
-- Event orchestration
-
-### Conversational Workflows
-- Powered by MemoryEnabledAssistant
-- Group chat patterns
-- Sequential task execution
-- Memory-enhanced interactions
-
-## Component Documentation
-
-Detailed documentation in `components/`:
-- [Agents](components/agents.md): AutoGen agent extensions
-- [Tools](components/tools.md): Tool system implementation
-- [Memory](components/memory.md): mem0 integration
+- Memory tool implementations
+- Standard tool interfaces
+- Tool execution patterns
 
 ## Design Principles
 
-1. **AutoGen Integration**: 
-   - Build on proven agent foundations
-   - Maintain protocol compatibility
-   - Enhance with memory capabilities
+1. **Adapter Pattern**: 
+   - Clean separation of message formats
+   - Extensible conversion system
+   - Factory pattern for adapter management
 
 2. **Memory-First**:
    - Seamless mem0 integration
    - Rich context management
    - Multi-scope storage
 
-3. **Tool Integration**:
-   - AutoGen tool protocol compatibility
-   - Custom tool implementations
-   - Extensible framework
+3. **AutoGen Compatibility**:
+   - Compatible with AutoGen v0.4
+   - Follows AutoGen design patterns
+   - Extends core functionality
 
-4. **Message System**:
-   - Bidirectional format conversion
-   - Protocol synchronization
-   - Type safety
-
-5. **Security**:
+4. **Security**:
    - Memory isolation
    - Access control
    - Tool permissions
+
+## Component Documentation
+
+Detailed documentation available in `components/`:
+- [Agents](components/agents.md): Agent implementations
+- [Messages](components/messages.md): Message system
+- [Memory](components/memory.md): Memory integration
+- [Tools](components/tools.md): Tool system
