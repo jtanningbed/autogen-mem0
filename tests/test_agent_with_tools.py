@@ -1,96 +1,79 @@
+"""Test agent with tool capabilities."""
+
 import asyncio
-import json
 from datetime import datetime
-from typing import List
+import logging
+import pytest
 
-from autogen_agentchat.agents import (
-    Agent,
-    GroupChat,
-    GroupChatManager,
-    GroupChatMessage,
-    RequestToSpeak,
+from dotenv import load_dotenv
+import os
+
+from autogen_core.base import CancellationToken
+from autogen_core.components.tools import FunctionTool
+from autogen_mem0.models import AnthropicChatCompletionClient
+from autogen_mem0.core.agents._base import AgentConfig, MemoryEnabledAssistant
+from autogen_mem0.core.messaging import (
+    SystemMessage,
+    UserMessage,
+    AssistantMessage
 )
-from autogen_core.components.models import UserMessage
-from autogen_core.components.tools import Tool, ToolSchema
-from anthropic_autogen.models import AnthropicChatCompletionClient
 
-# Define some example tools
+from autogen_agentchat.messages import TextMessage
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, 
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 async def get_current_time() -> str:
     """Get the current time."""
-    return datetime.now().strftime("%H:%M:%S")
+    current_time = datetime.now().strftime("%H:%M:%S")
+    logger.info(f"[TOOL] get_current_time called, returning: {current_time}")
+    return current_time
 
-async def calculate_sum(numbers: List[float]) -> float:
-    """Calculate the sum of a list of numbers."""
-    return sum(numbers)
+@pytest.mark.asyncio
+async def test_agent_with_tools() -> None:
+    """Test a MemoryEnabledAssistant using time tool."""
+    load_dotenv()
+    logger.info("Starting test_agent_with_tools")
 
-async def test_agent_with_tools():
-    # Initialize the Anthropic client
-    client = AnthropicChatCompletionClient(
+    # Initialize model client
+    model = AnthropicChatCompletionClient(
         model="claude-3-opus-20240229",
-        temperature=0.7,
-        max_tokens=1024,
+        max_tokens=1024, 
+        api_key=os.getenv("ANTHROPIC_API_KEY")
     )
-    
-    # Create tools
-    time_tool = Tool(
-        name="get_current_time",
-        description="Get the current time",
-        function=get_current_time,
+
+    # Create agent with time tool
+    agent = MemoryEnabledAssistant(
+        config=AgentConfig(
+            name="time_agent",
+            description="A test agent with time capabilities"
+        ),
+        model_client=model,
+        system_message="You are a helpful assistant that can tell the time.",
+        tools=[
+            FunctionTool(get_current_time, description="Get the current time")
+        ]
     )
-    
-    calc_tool = Tool(
-        name="calculate_sum",
-        description="Calculate the sum of numbers",
-        function=calculate_sum,
-        parameters={
-            "type": "object",
-            "properties": {
-                "numbers": {
-                    "type": "array",
-                    "items": {"type": "number"},
-                    "description": "List of numbers to sum"
-                }
-            },
-            "required": ["numbers"]
-        }
-    )
-    
-    # Create an agent with tools
-    assistant = Agent(
-        id="Assistant",
-        description="An assistant that can use tools to help with tasks.",
-        model_client=client,
-        system_message="You are a helpful assistant that can use tools to accomplish tasks. "
-                      "Use the get_current_time tool to tell time and calculate_sum to add numbers.",
-        tools=[time_tool, calc_tool]
-    )
-    
-    # Create group chat
-    group_chat = GroupChat(
-        agents=[assistant],
-        messages=[],
-        max_round=5,
-        topic_type="tool_usage"
-    )
-    
-    # Start conversation
-    await group_chat.start()
-    
-    # Test time tool
-    message1 = GroupChatMessage(
-        body=UserMessage(content="What time is it right now?", source="user"),
-        topic_id=group_chat.topic_id,
-    )
-    await group_chat.publish_message(message1)
-    await group_chat.wait_for_completion()
-    
-    # Test calculator tool
-    message2 = GroupChatMessage(
-        body=UserMessage(content="What is the sum of 1.5, 2.5, and 3.5?", source="user"),
-        topic_id=group_chat.topic_id,
-    )
-    await group_chat.publish_message(message2)
-    await group_chat.wait_for_completion()
+
+    # Test sequence
+    messages = [
+        SystemMessage(
+            content="This is a test conversation"
+        ),
+        UserMessage(
+            content="What time is it?"
+        )
+    ]
+
+    # Process messages
+    response = await agent.on_messages(messages, CancellationToken())
+
+    # Verify response
+    assert response is not None
+    assert isinstance(response.chat_message, TextMessage)
+    assert "time" in response.chat_message.content.lower()
 
 if __name__ == "__main__":
     asyncio.run(test_agent_with_tools())

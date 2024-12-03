@@ -1,0 +1,98 @@
+# Vector Store Configuration
+
+# Default configuration uses Qdrant Cloud
+default:
+  store_type: qdrant
+  store_settings:
+    host: ee8e0681-660c-48b2-93be-078ee1197e83.eu-west-1-0.aws.cloud.qdrant.io
+    port: 6333
+    api_key: ${QDRANT_API_KEY}
+    collection_name: anthropic_autogen
+    prefer_grpc: false
+    https: true
+    timeout: 20.0
+
+# Development configurations
+dev:
+  store_type: qdrant
+  store_settings:
+    host: ee8e0681-660c-48b2-93be-078ee1197e83.eu-west-1-0.aws.cloud.qdrant.io
+    port: 6333
+    api_key: ${QDRANT_API_KEY}
+    collection_name: anthropic_autogen_dev
+    prefer_grpc: false
+    https: true
+    timeout: 20.0
+
+# Testing configuration (can use local instance for tests)
+test:
+  store_type: qdrant
+  store_settings:
+    host: localhost
+    port: 6333
+    collection_name: anthropic_autogen_test
+    prefer_grpc: true
+    timeout: 5.0
+
+# Example configurations for different backends
+
+# Chroma (local)
+chroma_local:
+  store_type: chroma
+  store_settings:
+    collection_name: anthropic_autogen
+    persist_directory: ~/.anthropic_autogen/memory
+    allow_reset: true
+
+# Qdrant (local)
+qdrant_local:
+  store_type: qdrant
+  store_settings:
+    host: localhost
+    port: 6333
+    collection_name: anthropic_autogen
+
+# Qdrant (cloud)
+qdrant_cloud:
+  store_type: qdrant
+  store_settings:
+    host: your-instance.qdrant.cloud
+    port: 6333
+    api_key: ${QDRANT_API_KEY}
+    collection_name: anthropic_autogen
+
+# Pgvector
+pgvector:
+  store_type: pgvector
+  store_settings:
+    host: localhost
+    port: 5432
+    database: vector_db
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    collection_name: anthropic_autogen
+
+# Milvus
+milvus:
+  store_type: milvus
+  store_settings:
+    host: localhost
+    port: 19530
+    collection_name: anthropic_autogen
+
+# Azure AI Search
+azure_ai_search:
+  store_type: azure_ai_search
+  store_settings:
+    host: your-instance.search.windows.net
+    api_key: ${AZURE_SEARCH_API_KEY}
+    collection_name: anthropic_autogen
+
+# Redis
+redis:
+  store_type: redis
+  store_settings:
+    host: localhost
+    port: 6379
+    password: ${REDIS_PASSWORD}
+    collection_name: anthropic_autogen

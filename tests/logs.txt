@@ -1,9 +1,0 @@
-INFO     autogen_core.trace:test_request_response.py:75 
-=== Starting test_simple_qa ===
-INFO     autogen_core.trace:test_request_response.py:99 \Sending question: What is the capital of France? from runtime to the dumb agent.
-INFO     autogen_core.trace:test_request_response.py:39 Agent A initialized
-INFO     autogen_core.trace:test_request_response.py:47 Hi This is Agent A. I received a message: What is the capital of France?
-INFO     autogen_core.trace:test_request_response.py:48 I am unsure about this question. Let me ask Agent B.
-INFO     autogen_core.trace:test_request_response.py:55 Agent Agent B initialized
-INFO     autogen_core.trace:test_request_response.py:61 This is Agent B. I received the question: What is the capital of France?
-INFO     autogen_core.trace:test_request_response.py:62 The capital of France is Paris.

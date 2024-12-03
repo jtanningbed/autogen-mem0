@@ -5,7 +5,7 @@ import pytest
 from typing import Generator
 import torch
 
-from anthropic_autogen.models._huggingface import (
+from autogen_mem0.models._huggingface import (
     HuggingFaceChatCompletionClient,
     HuggingFaceClientConfiguration,
 )
@@ -35,14 +35,14 @@ def mock_tokenizer(mocker):
 @pytest.fixture
 def mock_auto_model(mocker, mock_model):
     """Mock AutoModelForCausalLM."""
-    mock_auto = mocker.patch("anthropic_autogen.models._huggingface.AutoModelForCausalLM")
+    mock_auto = mocker.patch("autogen_mem0.models._huggingface.AutoModelForCausalLM")
     mock_auto.from_pretrained.return_value = mock_model
     return mock_auto
 
 @pytest.fixture
 def mock_auto_tokenizer(mocker, mock_tokenizer):
     """Mock AutoTokenizer."""
-    mock_auto = mocker.patch("anthropic_autogen.models._huggingface.AutoTokenizer")
+    mock_auto = mocker.patch("autogen_mem0.models._huggingface.AutoTokenizer")
     mock_auto.from_pretrained.return_value = mock_tokenizer
     return mock_auto
 

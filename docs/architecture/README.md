@@ -1,52 +1,135 @@
 # Architecture Documentation
 
-## Agent Workflow Diagram
+## System Overview
 
-The `agent_workflow.mmd` file contains a Mermaid diagram showing the high-level architecture and component relationships of the Anthropic AutoGen system.
+The Anthropic-AutoGen system extends AutoGen's agent framework with enhanced memory capabilities through mem0 integration. We build upon AutoGen's core components while adding specialized features for both event-driven and conversational workflows.
 
-Key components:
+## Core Dependencies
 
-### Workflow Management
-- **WorkflowManager**: Orchestrates the overall execution flow
-- **WorkflowExecutor**: Handles sequential execution of steps
-- **ParallelExecutor**: Manages concurrent task execution
-- **StateStore**: Maintains workflow state
+### AutoGen Integration
+- Agent base classes:
+  - `RoutedAgent`: Powers our event-driven workflows
+  - `AssistantAgent`: Foundation for conversational agents
+- Message protocols
+- Tool execution patterns
 
-### Agents
-- **BaseAgent**: Abstract base class for all agents
-- **ChatAgent**: Handles conversational interactions
-- **TaskAgent**: Executes specific tasks
-- **ClaudeAgent**: Anthropic Claude-specific implementation
-- **ToolAgent**: Manages tool execution
+### Memory Enhancement
+- `mem0`: Memory framework integrated with AutoGen agents
+  - Vector storage for semantic search
+  - Key-value operations for state
+  - Context management
 
-### Tools
-- **BaseTool**: Abstract base for all tools
-- **FileTool**: File system operations
-- **ShellTool**: Shell command execution
-- **CustomTools**: Extension point for additional tools
+### External Dependencies
+- `anthropic`: Anthropic API integration
+- Additional utilities:
+  - Vector storage
+  - Key-value operations
+  - HTTP clients
 
-### Messaging
-- **MessageQueue**: Asynchronous message routing
-- **Messages**: Base message types
-  - ChatMessage: Agent conversations
-  - TaskMessage: Task execution
-  - ControlMessage: System control
+## Component Details
 
-### Task Management
-- **TaskManager**: Handles task lifecycle
-- **TaskContext**: Task execution context
-- **TaskState**: Task status tracking
+### Memory Layer
+- Built on mem0 framework
+- Enhances AutoGen agents with:
+  ```python
+  from mem0 import VectorStore, KeyValueStore, SQLStore
+  from anthropic_autogen.core.memory import MemoryManager
+  ```
 
-## Viewing the Diagram
+### Agent Layer
+- Extends AutoGen's agent classes:
+  ```python
+  from autogen_core.components import RoutedAgent
+  from autogen_agentchat import AssistantAgent
+  from anthropic_autogen.core.agents import (
+      EventAgent,           # Event-driven workflows
+      BaseMemoryAgent,      # Memory-enabled tasks
+      MemoryEnabledAssistant  # Full featured agent
+  )
+  ```
+- Message adaptation:
+  ```python
+  from anthropic_autogen.core.agents import MessageAdapter
+  # Synchronizes our messages with AutoGen format
+  ```
 
-The Mermaid diagram can be viewed:
-1. Directly on GitHub (which renders Mermaid natively)
-2. Using the Mermaid CLI tool
-3. Through various Mermaid-compatible Markdown viewers
+### Tool Layer
+- Compatible with AutoGen's tool protocols:
+  ```python
+  from autogen_core.components.tools import (
+      Tool,
+      ToolSchema
+  )
+  from anthropic_autogen.core.tools import BaseTool
+  ```
+- Custom tools:
+  - FileTool: File operations
+  - ShellTool: Command execution
+  - WebTool: Web interactions
 
-## Color Coding
+### Message System
+- Custom message types with AutoGen compatibility:
+  ```python
+  from anthropic_autogen.core.messaging import (
+      Message,
+      SystemMessage,
+      UserMessage,
+      AssistantMessage,
+      ToolCallMessage,
+      ToolCallResultMessage
+  )
+  ```
+- Message synchronization:
+  ```python
+  # Convert between formats
+  our_message = MessageAdapter.from_agent_message(autogen_msg)
+  autogen_message = our_message.to_autogen_message()
+  ```
 
-The diagram uses color coding to indicate component types:
-- Pink: Primary workflow components
-- Blue: Agent components
-- Green: Tool components
+## Workflow Patterns
+
+### Event-Driven Workflows
+- Powered by EventAgent (extends RoutedAgent)
+- Asynchronous pub/sub messaging
+- Parallel task execution
+- Event orchestration
+
+### Conversational Workflows
+- Powered by MemoryEnabledAssistant
+- Group chat patterns
+- Sequential task execution
+- Memory-enhanced interactions
+
+## Component Documentation
+
+Detailed documentation in `components/`:
+- [Agents](components/agents.md): AutoGen agent extensions
+- [Tools](components/tools.md): Tool system implementation
+- [Memory](components/memory.md): mem0 integration
+
+## Design Principles
+
+1. **AutoGen Integration**: 
+   - Build on proven agent foundations
+   - Maintain protocol compatibility
+   - Enhance with memory capabilities
+
+2. **Memory-First**:
+   - Seamless mem0 integration
+   - Rich context management
+   - Multi-scope storage
+
+3. **Tool Integration**:
+   - AutoGen tool protocol compatibility
+   - Custom tool implementations
+   - Extensible framework
+
+4. **Message System**:
+   - Bidirectional format conversion
+   - Protocol synchronization
+   - Type safety
+
+5. **Security**:
+   - Memory isolation
+   - Access control
+   - Tool permissions

@@ -1,0 +1,120 @@
+# Global Configuration
+
+default_environment: "default"
+
+environments:
+  # Default production environment
+  default:
+    memory:
+      vector_store:
+        provider: "qdrant"
+        config:
+          collection_name: "anthropic_autogen"
+          url: "${QDRANT_URL}"
+          api_key: ${QDRANT_API_KEY}
+      graph_store:
+        provider: "neo4j"
+        config:
+          url: "${NEO4J_URI}"
+          username: "${NEO4J_USERNAME}"
+          password: "${NEO4J_PASSWORD}"
+        llm:
+          provider: "openai"
+          config:
+            model: "gpt-4-turbo-preview"
+            api_key: ${OPENAI_API_KEY}
+            temperature: 0.7
+            max_tokens: 4096
+      llm:
+        provider: "anthropic"
+        config:
+          model: "claude-3-opus-20240229"
+          api_key: ${ANTHROPIC_API_KEY}
+          temperature: 0.7
+          max_tokens: 4096
+      embedder:
+        provider: "openai"
+        config:
+          model: "text-embedding-3-small"
+          api_key: ${OPENAI_API_KEY}
+      version: "v1.1"
+      history_db_path: ":memory:"  # Let mem0 handle DB creation, will update path later if needed
+  
+  # Development environment
+  dev:
+    memory:
+      vector_store:
+        provider: "chroma"
+        config:
+          collection_name: "anthropic_autogen_dev"
+          on_disk: false
+      llm:
+        provider: "anthropic"
+        config:
+          model: "claude-3-sonnet-20240229"
+          api_key: ${ANTHROPIC_API_KEY}
+          temperature: 0.7
+          max_tokens: 4096
+      embedder:
+        provider: "openai"
+        config:
+          model: "text-embedding-3-small"
+          api_key: ${OPENAI_API_KEY}
+      version: "v1.1"
+      history_db_path: ":memory:"  # Let mem0 handle DB creation, will update path later if needed
+  
+  # Testing environment
+  test:
+    memory:
+      vector_store:
+        provider: "chroma"
+        config:
+          collection_name: "anthropic_autogen_test"
+      llm:
+        provider: "anthropic"
+        config:
+          model: "claude-3-haiku-20240307"
+          api_key: ${ANTHROPIC_API_KEY}
+          temperature: 0.7
+          max_tokens: 4096
+      embedder:
+        provider: "openai"
+        config:
+          model: "text-embedding-3-small"
+          api_key: ${OPENAI_API_KEY}
+      version: "v1.1"
+      history_db_path: ":memory:"  # Let mem0 handle DB creation, will update path later if needed
+  
+  # Local development with graph store
+  local_graph:
+    memory:
+      vector_store:
+        provider: "chroma"
+        config:
+          collection_name: "anthropic_autogen_local"
+      llm:
+        provider: "ollama"
+        config:
+          model: "llama2"
+          max_tokens: 2048
+          temperature: 0.7
+      embedder:
+        provider: "ollama"
+        config:
+          model: "llama2"
+          batch_size: 4
+      version: "v1.1"
+      history_db_path: ":memory:"  # Let mem0 handle DB creation, will update path later if needed
+      graph_store:
+        provider: neo4j
+        config:
+          url: bolt://localhost:7687
+          username: neo4j
+          password: ${NEO4J_PASSWORD}
+        llm:
+          provider: "openai"
+          config:
+            model: "gpt-4-turbo-preview"
+            api_key: ${OPENAI_API_KEY}
+            temperature: 0.7
+            max_tokens: 4096

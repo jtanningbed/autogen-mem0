@@ -1,55 +1,51 @@
-graph TB
-    subgraph Workflow Management
-        WM[WorkflowManager] --> WE[WorkflowExecutor]
-        WM --> PE[ParallelExecutor]
-        WM --> SS[StateStore]
-        WE --> Steps[Step Execution]
+graph TD
+    subgraph "Message Layer"
+        M[Message] --> MA[Message Adapter]
+        MA --> |Convert| AM[AutoGen Message]
+        AM --> |Convert Back| MA
     end
 
-    subgraph Agents
-        BA[BaseAgent] --> CA[ChatAgent]
-        BA --> TA[TaskAgent]
-        CA --> Claude[ClaudeAgent]
-        TA --> ToolA[ToolAgent]
+    subgraph "Agent Layer"
+        RA[AutoGen RoutedAgent] --> EA[EventAgent]
+        AA[AutoGen AssistantAgent] --> BMA[Base Memory Agent]
+        BMA --> MEA[Memory Enabled Assistant]
     end
 
-    subgraph Tools
-        BT[BaseTool] --> FT[FileTool]
-        BT --> ST[ShellTool]
-        BT --> CT[CustomTools]
+    subgraph "Memory Layer"
+        MM[Memory Manager] --> |Manage| VM[Vector Memory]
+        MM --> |Manage| KV[Key-Value Memory]
+        MM --> |Manage| CM[Context Memory]
     end
 
-    subgraph Messaging
-        MQ[MessageQueue] --> MSG[Messages]
-        MSG --> ChatMsg[ChatMessage]
-        MSG --> TaskMsg[TaskMessage]
-        MSG --> CtrlMsg[ControlMessage]
+    subgraph "Tool Layer"
+        BT[Base Tool] --> FT[File Tool]
+        BT --> ST[Shell Tool]
+        BT --> WT[Web Tool]
     end
 
-    subgraph Task Management
-        TM[TaskManager] --> TC[TaskContext]
-        TC --> TS[TaskState]
+    subgraph "Workflow Patterns"
+        EA --> |Power| EW[Event-Driven Workflow]
+        EA --> |Enable| PW[Parallel Tasks]
+        MEA --> |Enable| GC[Group Chat]
+        MEA --> |Power| SW[Sequential Tasks]
     end
 
-    %% Connections between components
-    WE --> |Uses| MQ
-    WE --> |Executes| TA
-    TA --> |Uses| BT
-    CA --> |Sends| ChatMsg
-    ToolA --> |Sends| TaskMsg
-    TM --> |Manages| TC
-    MQ --> |Routes to| BA
+    MEA --> |Use| MM
+    MEA --> |Use| MA
+    MEA --> |Use| BT
+    EA --> |Use| MA
+    EA --> |Use| BT
 
-    %% Data flow
-    Steps --> |Creates| TaskMsg
-    TaskMsg --> |Handled by| TA
-    TA --> |Executes| BT
-    BT --> |Returns| ToolResponse
+    classDef memory fill:#f9f,stroke:#333,stroke-width:2px
+    classDef agent fill:#bbf,stroke:#333,stroke-width:2px
+    classDef message fill:#bfb,stroke:#333,stroke-width:2px
+    classDef tool fill:#ffb,stroke:#333,stroke-width:2px
+    classDef workflow fill:#fbb,stroke:#333,stroke-width:2px
+    classDef autogen fill:#ddd,stroke:#333,stroke-width:2px
 
-    classDef primary fill:#f9f,stroke:#333,stroke-width:2px
-    classDef secondary fill:#bbf,stroke:#333,stroke-width:2px
-    classDef tertiary fill:#dfd,stroke:#333,stroke-width:2px
-
-    class WM,WE,PE primary
-    class BA,CA,TA,Claude,ToolA secondary
-    class BT,FT,ST,CT tertiary
+    class MM,VM,KV,CM memory
+    class EA,BMA,MEA agent
+    class M,MA,AM message
+    class BT,FT,ST,WT tool
+    class EW,PW,GC,SW workflow
+    class RA,AA autogen
