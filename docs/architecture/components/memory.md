@@ -2,187 +2,211 @@
 
 ## Overview
 
-Our memory system enhances AutoGen's agents with persistent memory capabilities through mem0 integration. This provides rich context management and multi-scope storage while maintaining seamless compatibility with AutoGen's messaging and execution protocols.
+The memory system integrates mem0 with AutoGen to provide persistent memory capabilities for agents. The system is built around a centralized MemoryManager that handles memory operations and context management.
 
 ## Core Components
 
 ### Memory Manager
 
 ```python
-from mem0 import VectorStore, KeyValueStore
-from anthropic_autogen.core.memory import MemoryManager
+from autogen_mem0.core.memory import MemoryManager
+from autogen_mem0.core.config import ConfigManager
 
 class MemoryManager:
-    """Memory management for AutoGen agents."""
+    """Manages memory operations and lifecycle."""
     
-    def __init__(self):
-        self.vector_store = VectorStore()
-        self.kv_store = KeyValueStore()
-        self.contexts = {}
-    
-    def store(self, key: str, value: any, context: str = "default"):
-        """Store data in appropriate storage."""
-        pass
-    
-    def retrieve(self, key: str, context: str = "default") -> any:
-        """Retrieve data from storage."""
-        pass
-```
+    def __init__(self, config_manager: ConfigManager):
+        self._config = config_manager
+        self._memories = {}
+        self._conversation_id = None
 
-### Storage Types
-
-#### Vector Store
-```python
-class VectorMemory:
-    """Vector-based memory storage."""
-    
-    def __init__(self):
-        self.store = VectorStore()
-    
-    def store_embedding(self, text: str, metadata: dict = None):
-        """Store text as vector embedding."""
+    def start_conversation(self) -> str:
+        """Start a new conversation context."""
         pass
-    
-    def search(self, query: str, k: int = 5) -> list:
-        """Search for similar content."""
+
+    async def get_memory(self, agent_name: str, memory_config: dict) -> Memory:
+        """Get or create memory instance for an agent."""
+        pass
+
+    def clear_memory(self, agent_name: str) -> None:
+        """Clear an agent's memory."""
         pass
 ```
 
-#### Key-Value Store
+### Memory Configuration
+
 ```python
-class KVMemory:
-    """Key-value based memory storage."""
-    
-    def __init__(self):
-        self.store = KeyValueStore()
-    
-    def set(self, key: str, value: any):
-        """Store key-value pair."""
-        pass
-    
-    def get(self, key: str) -> any:
-        """Retrieve value by key."""
-        pass
+from mem0.configs.base import MemoryConfig
+
+config = {
+    "provider": "mem0",
+    "config": {
+        "collection": "conversations",
+        "vector_store": {
+            "type": "qdrant",
+            "config": {...}
+        },
+        "key_value_store": {
+            "type": "redis",
+            "config": {...}
+        }
+    }
+}
 ```
 
-## Memory Contexts
+## Memory Operations
 
-### Context Management
+### Storing Information
+
 ```python
-class MemoryContext:
-    """Memory context management."""
-    
-    def __init__(self, name: str):
-        self.name = name
-        self.vector_memory = VectorMemory()
-        self.kv_memory = KVMemory()
-    
-    def store(self, data: any, metadata: dict = None):
-        """Store data in context."""
-        pass
-    
-    def search(self, query: str) -> list:
-        """Search within context."""
-        pass
+# Store with context
+await memory.add(
+    messages="User prefers dark mode",
+    metadata={
+        "user_id": "user123",
+        "type": "preference",
+        "timestamp": "2024-03-04T12:00:00Z"
+    },
+    filters={"user_id": "user123"}
+)
 ```
 
-### Context Types
-- Global: Shared across all agents
-- User: Per-user memory
-- Session: Temporary session memory
-- Agent: Agent-specific memory
+### Retrieving Information
 
-## Integration with AutoGen
-
-### Memory-Enabled Agents
 ```python
-from autogen_agentchat import AssistantAgent
-
-class BaseMemoryAgent(AssistantAgent):
-    """AutoGen agent with memory capabilities."""
-    
-    def __init__(self):
-        super().__init__()
-        self.memory = MemoryManager()
-    
-    async def process_message(self, message: dict):
-        """Process message with memory context."""
-        context = await self.memory.get_context()
-        return await super().process_message(message, context=context)
-```
-
-### Conversation Memory
-```python
-class ConversationMemory:
-    """Memory for group chat workflows."""
-    
-    def __init__(self):
-        self.memory = MemoryManager()
-    
-    def store_message(self, message: dict):
-        """Store conversation message."""
-        self.memory.store(
-            message,
-            context="conversation"
-        )
-    
-    def get_history(self) -> list:
-        """Retrieve conversation history."""
-        return self.memory.retrieve(
-            "conversation_history",
-            context="conversation"
-        )
-```
-
-## Usage Examples
-
-### Agent Memory
-```python
-# Create memory-enabled agent
-agent = BaseMemoryAgent()
-
-# Store context
-await agent.memory.store(
-    "task_context",
-    {"objective": "Write code"}
+# Search with filters
+results = await memory.search(
+    query="user preferences",
+    filters={"type": "preference"},
+    limit=5
 )
 
-# Retrieve context
-context = await agent.memory.retrieve("task_context")
+# Get specific memory
+memory = await memory.get(
+    memory_id="mem123",
+    user_id="user123"
+)
 ```
 
-### Group Chat Memory
+### Context Management
+
 ```python
-# Initialize group chat memory
-chat_memory = ConversationMemory()
+# Start new conversation
+conversation_id = memory_manager.start_conversation()
 
-# Store message
-chat_memory.store_message({
-    "role": "assistant",
-    "content": "Hello!"
-})
-
-# Get chat history
-history = chat_memory.get_history()
+# Get context
+context = {
+    "user_id": "user123",
+    "agent_id": "assistant",
+    "session_id": conversation_id,
+    "metadata": {"type": "support_session"}
+}
 ```
 
-## Security
+## Integration with Agents
 
-### Memory Isolation
-- Context-based isolation
-- Access control per context
-- Data encryption at rest
+### BaseMemoryAgent
 
-### Data Protection
 ```python
-class SecureMemory:
-    def __init__(self):
-        self.encryption_key = self.get_encryption_key()
+class BaseMemoryAgent:
+    async def __init__(self, config: AgentConfig):
+        self._memory_manager = MemoryManager(ConfigManager())
+        self._memory = await self._memory_manager.get_memory(
+            self.name,
+            config.memory_config
+        )
+
+    async def store(
+        self, 
+        content: Any, 
+        metadata: Optional[Dict] = None
+    ) -> None:
+        """Store content in memory."""
+        if self._memory:
+            await self._memory.add(
+                messages=content,
+                metadata=metadata,
+                user_id=self.name,
+                filters={"user_id": self.name}
+            )
+
+    async def recall(
+        self, 
+        query: str,
+        limit: int = 5
+    ) -> List[Any]:
+        """Recall content from memory."""
+        if self._memory:
+            return await self._memory.search(
+                query=query,
+                user_id=self.name,
+                filters={"user_id": self.name},
+                limit=limit
+            )
+        return []
+```
+
+## Memory Tools
+
+### StoreMemoryTool
+
+```python
+from autogen_mem0.core.tools import StoreMemoryTool
+
+class StoreMemoryTool(BaseTool):
+    """Tool for storing information in memory."""
     
-    def encrypt_data(self, data: any) -> bytes:
-        """Encrypt data before storage."""
-        pass
+    async def execute(
+        self, content: str, metadata: Dict = None
+    ) -> str:
+        await self._memory.add(
+            messages=content,
+            metadata=metadata
+        )
+        return "Memory stored successfully"
+```
+
+### RecallMemoryTool
+
+```python
+from autogen_mem0.core.tools import RecallMemoryTool
+
+class RecallMemoryTool(BaseTool):
+    """Tool for recalling information from memory."""
     
-    def decrypt_data(self, encrypted: bytes) -> any:
-        """Decrypt data after retrieval."""
-        pass
+    async def execute(
+        self, query: str, limit: int = 5
+    ) -> List[str]:
+        results = await self._memory.search(
+            query=query,
+            limit=limit
+        )
+        return results
+```
+
+## Best Practices
+
+1. **Memory Organization**
+   - Use consistent metadata schemas
+   - Apply appropriate filters
+   - Clean up obsolete memories
+
+2. **Context Management**
+   - Start new conversations appropriately
+   - Include relevant context in metadata
+   - Use conversation IDs for tracking
+
+3. **Tool Usage**
+   - Use memory tools for agent access
+   - Handle tool errors gracefully
+   - Validate inputs and outputs
+
+4. **Performance**
+   - Set appropriate limits for recalls
+   - Use efficient search queries
+   - Monitor memory usage
+
+5. **Security**
+   - Validate user access
+   - Sanitize stored content
+   - Manage memory lifecycle
