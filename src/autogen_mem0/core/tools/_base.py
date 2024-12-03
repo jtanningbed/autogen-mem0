@@ -1,113 +1,93 @@
-"""Base tool implementation for autogen-mem0."""
+"""Base tool protocol implementation."""
 
-from abc import ABC
-from typing import Dict, Any, Optional, Type, TypeVar, Generic, Union, Sequence, Mapping, List
-from autogen_core.components.tools import BaseTool as AutogenBaseTool, FunctionTool, ParametersSchema, ToolSchema
-from autogen_core.base import CancellationToken
-from anthropic.types.beta import (
-    BetaToolParam,
-    BetaToolComputerUse20241022Param,
-    BetaToolBash20241022Param,
-    BetaToolTextEditor20241022Param,
-)
-from pydantic import BaseModel, create_model
-from typing import TypedDict, NotRequired
-import json
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Generic, Optional, Type, TypeVar
+from pydantic import BaseModel
+from autogen_core.components.tools._base import CancellationToken
 
-from ..adapters.tools import ToolAdapterFactory
+InputType = TypeVar('InputType', bound=BaseModel)
+OutputType = TypeVar('OutputType', bound=BaseModel)
 
-ArgsT = TypeVar("ArgsT", bound=BaseModel)
-ReturnT = TypeVar("ReturnT")
-
-
-class BaseTool(AutogenBaseTool[ArgsT, ReturnT], ABC):
-    """Base class for all tools in autogen-mem0.
+class BaseTool(Generic[InputType, OutputType], ABC):
+    """Base class for all tools.
     
-    This extends autogen's BaseTool with:
-    1. Anthropic beta tool parameter support via to_beta_param()
-    2. Support for computer-use tools
-    3. Schema-based initialization
-    4. Automatic input validation and serialization handling
+    Tools should inherit from this class and implement the run() method.
+    Input and output types should be Pydantic models.
+    
+    Example:
+        ```python
+        class MyTool(BaseTool[MyInput, MyOutput]):
+            def __init__(self):
+                super().__init__(
+                    name="my_tool",
+                    description="My tool description"
+                )
+                
+            async def run(
+                self,
+                args: MyInput,
+                cancellation_token: Optional[CancellationToken] = None
+            ) -> MyOutput:
+                # Tool implementation
+                pass
+        ```
     """
-
+    
     def __init__(
         self,
-        *,
-        args_type: Type[BaseModel],
-        return_type: Type[BaseModel] | Type[List[Dict[str, Any]]],
         name: str,
         description: str,
+        args_type: Type[InputType],
+        return_type: Type[OutputType],
+        metadata: Optional[Dict[str, Any]] = None
     ):
-        """Initialize the tool.
-
+        """Initialize tool.
+        
         Args:
-            args_type: The type of the arguments.
-            return_type: The type of the return value.
-            name: The name of the tool.
-            description: A description of what the tool does.
+            name: Tool name
+            description: Tool description
+            args_type: Input type (Pydantic model)
+            return_type: Output type (Pydantic model)
+            metadata: Optional metadata
         """
-        self._args_type = args_type
-        self._return_type = return_type
-        self._name = name
-        self._description = description
-
-    @property
-    def name(self) -> str:
-        """Get tool name."""
-        return self._name
-
-    @property
-    def description(self) -> str:
-        """Get tool description."""
-        return self._description
-
-    @property 
-    def schema(self) -> Dict[str, Any]:
-        """Get tool schema.
+        self.name = name
+        self.description = description
+        self.args_type = args_type
+        self.return_type = return_type
+        self.metadata = metadata or {}
+        self.schema = self._build_schema()
         
-        Returns original schema if tool was created from schema,
-        otherwise generates schema from type information.
-        """
-        if hasattr(self, '_schema'):
-            return self._schema
-        return super().schema
-
-    def adapt(self, adapter_name: str): 
-        adapter = ToolAdapterFactory.get_adapter(adapter_name)
-        if adapter:
-            return adapter.adapt(self)
-        else:
-            raise ValueError(f"No adapter found for {adapter_name}")
-
-    async def run_json(
-        self, args: Mapping[str, Any], cancellation_token: CancellationToken
-    ) -> Any:
-        """Run the tool with proper input validation.
-
-        This extends the base run_json to handle both dict and string inputs.
-        """
-        try:
-            # Handle both dict and string inputs
-            if isinstance(args, dict):
-                validated_args = self._args_type.model_validate(args)
-            elif isinstance(args, str):
-                validated_args = self._args_type.model_validate(json.loads(args))
-            else:
-                raise ValueError(f"Expected dict or str args, got {type(args)}")
-
-            return_value = await self.run(validated_args, cancellation_token)
-            return return_value
-
-        except Exception as e:
-            print(f"Error in {self.__class__.__name__}: {e}")
-            print(f"Args type: {type(args)}")
-            print(f"Args content: {args}")
-            raise
-
-    def to_function_tool(self) -> FunctionTool:
-        """Convert this tool to a FunctionTool for compatibility.
+    def _build_schema(self) -> Dict[str, Any]:
+        """Build JSON schema for tool.
         
-        This allows the tool to be used in contexts that expect FunctionTool's interface.
-        The resulting FunctionTool will delegate actual execution to this tool's run() method.
+        Returns:
+            Dict containing tool schema
         """
-        return self.adapt("function")
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": self.args_type.schema(),
+            "returns": self.return_type.schema(),
+            "metadata": self.metadata
+        }
+        
+    @abstractmethod
+    async def run(
+        self,
+        args: InputType,
+        cancellation_token: Optional[CancellationToken] = None
+    ) -> OutputType:
+        """Execute the tool.
+        
+        Args:
+            args: Input arguments (instance of args_type)
+            cancellation_token: Optional token for cancellation
+            
+        Returns:
+            Tool output (instance of return_type)
+            
+        Raises:
+            ValueError: If inputs are invalid
+            Exception: For tool-specific errors
+        """
+        pass
