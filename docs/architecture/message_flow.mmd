@@ -1,0 +1,27 @@
+---
+title: Message Flow
+---
+graph TD
+    User[User Input] --> |Raw Message| BaseMsg[Base Message]
+    BaseMsg --> |AutogenMessageAdapter| AutogenMsg[Autogen Message]
+    AutogenMsg --> |Agent Processing| AgentProc[Agent Processing]
+    AgentProc --> |AnthropicRequestAdapter| LLMReq[LLM Request]
+    LLMReq --> |API Call| LLMResp[LLM Response]
+    LLMResp --> |AnthropicResponseAdapter| CreateRes[CreateResult]
+    CreateRes --> |Agent Processing| AgentResp[Agent Response]
+    
+    subgraph "Message Adaptation Layer"
+        BaseMsg
+        AutogenMsg
+        LLMReq
+        LLMResp
+        CreateRes
+    end
+    
+    subgraph "Memory Operations"
+        AgentProc --> |Store| Mem[(Memory)]
+        AgentProc --> |Recall| Mem
+    end
+    
+    style Message Adaptation Layer fill:#f9f,stroke:#333,stroke-width:2px
+    style Memory Operations fill:#bbf,stroke:#333,stroke-width:2px
