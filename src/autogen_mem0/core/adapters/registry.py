@@ -18,7 +18,7 @@ def register_adapters():
     """Register all default adapters."""
     # Register message adapters
     MessageAdapterFactory.register(
-        "anthropic_autogen.core.messaging.ChatMessage",
+        "autogen_mem0.core.messaging.ChatMessage",
         "autogen_agentchat.messages.ChatMessage",
         AutogenMessageAdapter(),
     )

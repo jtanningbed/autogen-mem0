@@ -27,6 +27,7 @@ from autogen_agentchat.messages import (
 
 from mem0.configs.base import MemoryConfig
 
+from ..adapters.messages import MessageAdapterFactory
 from ..messaging import ( Message, AssistantMessage, UserMessage, SystemMessage, AgentMessage, ToolCallMessage, ToolCallResultMessage, HandoffMessage, StopMessage, ChatMessage, TextMessage, MultiModalMessage )
 from ..memory.manager import MemoryManager
 from ..config import ConfigManager
@@ -62,58 +63,6 @@ class EventAgent(RoutedAgent):
     def config(self) -> AgentConfig:
         """Get agent configuration."""
         return self._config
-
-class MessageAdapter:
-    """Adapter for converting between our message types and autogen message types."""
-    
-    @staticmethod
-    def to_agent_message(msg: Message) -> AutogenAgentMessage:
-        """Convert our message type to autogen AgentMessage."""
-        return msg.to_autogen_message()
-    
-    @staticmethod
-    def from_agent_message(msg: AutogenAgentMessage) -> Message:
-        """Convert autogen AgentMessage to our message type."""
-        if isinstance(msg, AutogenTextMessage):
-            if msg.source == "system":
-                return SystemMessage(content=msg.content)
-            elif msg.source == "assistant":
-                return AssistantMessage(content=msg.content)
-            else:
-                return UserMessage(content=msg.content)
-                
-        elif isinstance(msg, AutogenMultiModalMessage):
-            return UserMessage(content=str(msg.content))
-            
-        elif isinstance(msg, AutogenHandoffMessage):
-            return HandoffMessage(
-                content=msg.content,
-                target=msg.target,
-                source=msg.source
-            )
-            
-        elif isinstance(msg, AutogenStopMessage):
-            return StopMessage(content=msg.content)
-            
-        elif isinstance(msg, AutogenToolCallMessage):
-            return ToolCallMessage(
-                content=msg.content,
-                source=msg.source,
-                tool_name=msg.content[0].name if msg.content else "",
-                tool_input=msg.content[0].arguments if msg.content else {}
-            )
-            
-        elif isinstance(msg, AutogenToolCallResultMessage):
-            return ToolCallResultMessage(
-                content=msg.content,
-                source=msg.source,
-                results=[FunctionExecutionResult(content=result.content, call_id=result.call_id) 
-                        for result in msg.content]
-            )
-            
-        else:
-            # Default to UserMessage for unknown types
-            return UserMessage(content=str(msg.content))
 
 class BaseMemoryAgent(BaseChatAgent):
     """Base agent with integrated memory capabilities."""
@@ -168,36 +117,36 @@ class BaseMemoryAgent(BaseChatAgent):
         if not messages:
             return Response(chat_message=AutogenTextMessage(content="No messages received", source=self.name))
 
-        # Convert autogen messages to our types
-        our_messages = [MessageAdapter.from_agent_message(msg) for msg in messages]
-
+        # Messages should already be in autogen format since they come from autogen
+        autogen_messages = list(messages)
+        
         # Add system message if not present
-        if not any(isinstance(m, SystemMessage) for m in our_messages):
+        if not any(msg.source == "system" for msg in messages):
             if isinstance(self._system_messages, str):
-                system_msg = SystemMessage(content=self._system_messages, source=self.name)
-                our_messages.insert(0, system_msg)
+                system_msg = AutogenTextMessage(content=self._system_messages, source="system")
+                autogen_messages.insert(0, system_msg)
             else:
-                # Handle case where system messages might be a list or other type
                 system_content = str(self._system_messages)
-                system_msg = SystemMessage(content=system_content, source=self.name)
-                our_messages.insert(0, system_msg)
+                system_msg = AutogenTextMessage(content=system_content, source="system") 
+                autogen_messages.insert(0, system_msg)
 
         # Process with model client
         result = await self._model_client.create(
-            messages=our_messages,
+            messages=autogen_messages,
             tools=self._tools,
             cancellation_token=cancellation_token
         )
         
-        # Add assistant message to model context 
-        assistant_msg = AssistantMessage(
-            content=result.content,
-            source=self.name
+        # Create assistant message and convert to autogen format for context and response
+        assistant_msg = AssistantMessage(content=result.content, source=self.name)
+        autogen_assistant_msg = MessageAdapterFactory.adapt(
+            assistant_msg, 
+            source_type="assistant", 
+            target_type="autogen"
         )
-        self._model_context.append(assistant_msg)
         
-        # Let base class handle conversion to TextMessage
-        return Response(chat_message=assistant_msg)
+        self._model_context.append(autogen_assistant_msg)
+        return Response(chat_message=autogen_assistant_msg)
 
     async def on_reset(self, cancellation_token: CancellationToken) -> None:
         """Reset agent state."""
@@ -233,7 +182,6 @@ class MemoryEnabledAssistant(AssistantAgent):
             print(f"DEBUG: Started conversation {self._conversation_id}")
 
             # Initialize memory instance asynchronously
-            # Note: We can't use await in __init__, so we'll initialize in an async method
             self._memory_config = config.memory_config
             self._agent_name = config.name
 
@@ -318,10 +266,17 @@ These context values are fixed for the duration of our conversation and should b
         messages: Sequence[AutogenChatMessage|AgentMessage],
         cancellation_token: CancellationToken
     ) -> Response:
-        # """Process messages with memory integration."""
-        # # Initialize memory if needed
-        # if self._memory_manager and not self._memory:
-        #     await self.initialize_memory()
-        #     print("DEBUG: Got memory instance with context")
+        # Convert any of our message types to autogen format before passing to super
+        autogen_messages = []
+        for msg in messages:
+            if isinstance(msg, Message):  # Message is our base message type
+                autogen_msg = MessageAdapterFactory.adapt(
+                    msg,
+                    source_type="agent",
+                    target_type="autogen"
+                )
+                autogen_messages.append(autogen_msg)
+            else:
+                autogen_messages.append(msg)
 
-        return await super().on_messages(messages, cancellation_token)
+        return await super().on_messages(autogen_messages, cancellation_token)
