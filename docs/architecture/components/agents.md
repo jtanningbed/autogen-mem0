@@ -49,26 +49,107 @@ from anthropic_autogen.core.agents import (
   - Conversable interface
   - Task specialization
 
-## Message Handling
+## Message Adapter System
 
-### Message Adaptation
+The message adapter system provides a flexible way to convert between different message formats in the system. It follows the adapter pattern with a clear hierarchy and factory pattern for management.
+
+### Core Components
+
 ```python
-from anthropic_autogen.core.messaging import MessageAdapter
+from abc import ABC, abstractmethod
+from typing import TypeVar, Generic
 
-class MessageAdapter:
-    """Synchronizes message formats between our system and AutoGen."""
+T = TypeVar('T')
+U = TypeVar('U')
+
+class MessageAdapter(ABC, Generic[T, U]):
+    """Base adapter interface for converting between message types."""
     
-    @classmethod
-    def to_autogen_message(cls, message: Message) -> dict:
-        """Convert our message to AutoGen format."""
+    @abstractmethod
+    def adapt(self, message: T) -> U:
+        """Convert from source type T to target type U."""
         pass
+
+class AutogenMessageAdapter(MessageAdapter[ChatMessage, AutogenChatMessage]):
+    """Converts our messages to autogen_agentchat messages.
+    The entrypoint for our autogen_agentchat integration."""
     
-    @classmethod
-    def from_autogen_message(cls, message: dict) -> Message:
-        """Convert AutoGen message to our format."""
+    def adapt(self, messages: List[ChatMessage]) -> List[AutogenChatMessage]:
+        """Convert our message to autogen message format."""
         pass
+
+class AnthropicRequestAdapter(MessageAdapter[List[CoreLLMMessage], List[Dict[str, Any]]]):
+    """Converts autogen_core messages to Anthropic API format."""
+    pass
+
+class AnthropicResponseAdapter(MessageAdapter[AnthropicMessage, CreateResult]):
+    """Converts Anthropic API responses to autogen_core CreateResult."""
+    pass
 ```
 
+### Factory Pattern
+
+```python
+class MessageAdapterFactory:
+    """Factory for creating message adapters."""
+    
+    _adapters: Dict[str, MessageAdapter] = {}
+    
+    @classmethod
+    def register(cls, source_type: str, target_type: str, adapter: MessageAdapter) -> None:
+        """Register an adapter for source -> target type conversion."""
+        cls._adapters[f"{source_type}->{target_type}"] = adapter
+    
+    @classmethod
+    def get_adapter(cls, source_type: str, target_type: str) -> Optional[MessageAdapter]:
+        """Get adapter for source -> target type conversion."""
+        return cls._adapters.get(f"{source_type}->{target_type}")
+```
+
+### Usage in Agents
+
+```python
+class MemoryEnabledAssistant(AssistantAgent):
+    async def on_messages(
+        self,
+        messages: Sequence[AutogenChatMessage|AgentMessage],
+        cancellation_token: CancellationToken
+    ) -> Response:
+        """Process messages with memory integration."""
+        # Convert any of our message types to autogen format
+        autogen_messages = []
+        for msg in messages:
+            if isinstance(msg, Message):
+                autogen_msg = MessageAdapterFactory.adapt(
+                    msg,
+                    source_type="agent",
+                    target_type="autogen"
+                )
+                autogen_messages.append(autogen_msg)
+            else:
+                autogen_messages.append(msg)
+                
+        return await super().on_messages(autogen_messages, cancellation_token)
+```
+
+### Message Flow
+
+1. **Agent Input**
+   - Messages enter the system through agent interfaces
+   - AutogenMessageAdapter converts to autogen format
+   - Messages processed by autogen framework
+
+2. **LLM Communication**
+   - AnthropicRequestAdapter prepares messages for API
+   - AnthropicResponseAdapter handles API responses
+   - Results converted back to autogen format
+
+3. **Memory Operations**
+   - Messages stored in original format
+   - Adapters handle format conversion for queries
+   - Context maintained across conversions
+
+   
 ## Workflow Patterns
 
 ### Event-Driven Workflows
