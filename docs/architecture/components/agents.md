@@ -2,219 +2,147 @@
 
 ## Overview
 
-Our agent system extends and augments AutoGen's agent framework with enhanced memory capabilities through mem0 integration. We support both event-driven asynchronous workflows through our EventAgent (extending AutoGen's RoutedAgent) and sequential conversational workflows through our memory-enabled agents (extending AutoGen's AssistantAgent).
+The agent system in autogen-mem0 extends Microsoft's AutoGen v0.4 with memory capabilities through mem0 integration. Memory operations are primarily performed through tools at the LLM level, with initialization and configuration handled at the agent level.
 
 ## Core Components
 
-### Agent Hierarchy
+### Agent Types
 
 ```python
-from autogen_core.components import RoutedAgent
-from autogen_agentchat import AssistantAgent
-from anthropic_autogen.core.agents import (
-    EventAgent,           # Async event-driven workflows
-    BaseMemoryAgent,      # Memory-enabled sequential workflows
-    MemoryEnabledAssistant  # Full featured conversational agent
+from autogen_mem0.core.agents import (
+    BaseMemoryAgent,      # Legacy base memory agent (not fully tested)
+    MemoryEnabledAssistant  # Primary memory-capable assistant
 )
 ```
 
-### Event-Driven Agents
+## Memory-Enabled Assistant
 
-#### EventAgent
-- Extends: `autogen_core.components.RoutedAgent`
-- Purpose: Asynchronous event-driven workflows
-- Features:
-  - Pub/sub messaging
-  - Non-sequential execution
-  - Event routing
-  - Parallel workflow orchestration
-
-### Conversational Agents
-
-#### BaseMemoryAgent
-- Extends: `autogen_agentchat.AssistantAgent`
-- Purpose: Sequential task-driven workflows
-- Features:
-  - Memory integration via mem0
-  - Follows ChatAgent protocol
-  - Sequential conversation handling
-  - Task decomposition
-
-#### MemoryEnabledAssistant
-- Extends: `BaseMemoryAgent`
-- Purpose: Advanced conversational workflows
-- Features:
-  - Enhanced memory capabilities
-  - Group chat patterns
-  - Conversable interface
-  - Task specialization
-
-## Message Adapter System
-
-The message adapter system provides a flexible way to convert between different message formats in the system. It follows the adapter pattern with a clear hierarchy and factory pattern for management.
-
-### Core Components
-
-```python
-from abc import ABC, abstractmethod
-from typing import TypeVar, Generic
-
-T = TypeVar('T')
-U = TypeVar('U')
-
-class MessageAdapter(ABC, Generic[T, U]):
-    """Base adapter interface for converting between message types."""
-    
-    @abstractmethod
-    def adapt(self, message: T) -> U:
-        """Convert from source type T to target type U."""
-        pass
-
-class AutogenMessageAdapter(MessageAdapter[ChatMessage, AutogenChatMessage]):
-    """Converts our messages to autogen_agentchat messages.
-    The entrypoint for our autogen_agentchat integration."""
-    
-    def adapt(self, messages: List[ChatMessage]) -> List[AutogenChatMessage]:
-        """Convert our message to autogen message format."""
-        pass
-
-class AnthropicRequestAdapter(MessageAdapter[List[CoreLLMMessage], List[Dict[str, Any]]]):
-    """Converts autogen_core messages to Anthropic API format."""
-    pass
-
-class AnthropicResponseAdapter(MessageAdapter[AnthropicMessage, CreateResult]):
-    """Converts Anthropic API responses to autogen_core CreateResult."""
-    pass
-```
-
-### Factory Pattern
-
-```python
-class MessageAdapterFactory:
-    """Factory for creating message adapters."""
-    
-    _adapters: Dict[str, MessageAdapter] = {}
-    
-    @classmethod
-    def register(cls, source_type: str, target_type: str, adapter: MessageAdapter) -> None:
-        """Register an adapter for source -> target type conversion."""
-        cls._adapters[f"{source_type}->{target_type}"] = adapter
-    
-    @classmethod
-    def get_adapter(cls, source_type: str, target_type: str) -> Optional[MessageAdapter]:
-        """Get adapter for source -> target type conversion."""
-        return cls._adapters.get(f"{source_type}->{target_type}")
-```
-
-### Usage in Agents
+### Initialization
 
 ```python
 class MemoryEnabledAssistant(AssistantAgent):
+    def __init__(
+        self,
+        config: AgentConfig,
+        model_client: ChatCompletionClient,
+        tools: Optional[List[Tool]] = None,
+        handoffs: Optional[List[Handoff | str]] = None,
+        system_message: str = None
+    ):
+        # Initialize memory components
+        if config.memory_config:
+            self._memory_manager = MemoryManager(ConfigManager())
+            self._conversation_id = self._memory_manager.start_conversation()
+            self._memory = self._memory_manager.get_memory(
+                self._agent_name, 
+                memory_config=self._memory_config
+            )
+            
+            # Add memory tools
+            self._tools.append(StoreMemoryTool(self._memory))
+            self._tools.append(RecallMemoryTool(self._memory))
+```
+
+### Message Processing
+
+```python
+class MemoryEnabledAssistant:
     async def on_messages(
         self,
         messages: Sequence[AutogenChatMessage|AgentMessage],
         cancellation_token: CancellationToken
     ) -> Response:
-        """Process messages with memory integration."""
-        # Convert any of our message types to autogen format
-        autogen_messages = []
-        for msg in messages:
-            if isinstance(msg, Message):
-                autogen_msg = MessageAdapterFactory.adapt(
-                    msg,
-                    source_type="agent",
-                    target_type="autogen"
-                )
-                autogen_messages.append(autogen_msg)
-            else:
-                autogen_messages.append(msg)
-                
+        # Convert messages to autogen format
+        autogen_messages = [
+            MessageAdapterFactory.adapt(msg, "agent", "autogen")
+            if isinstance(msg, Message)
+            else msg
+            for msg in messages
+        ]
+        
         return await super().on_messages(autogen_messages, cancellation_token)
 ```
 
-### Message Flow
+## Memory Operations
 
-1. **Agent Input**
-   - Messages enter the system through agent interfaces
-   - AutogenMessageAdapter converts to autogen format
-   - Messages processed by autogen framework
+### Via Tools (Primary Method)
 
-2. **LLM Communication**
-   - AnthropicRequestAdapter prepares messages for API
-   - AnthropicResponseAdapter handles API responses
-   - Results converted back to autogen format
-
-3. **Memory Operations**
-   - Messages stored in original format
-   - Adapters handle format conversion for queries
-   - Context maintained across conversions
-
-   
-## Workflow Patterns
-
-### Event-Driven Workflows
 ```python
-class EventDrivenWorkflow:
-    def __init__(self):
-        self.event_agent = EventAgent()
-        self.subscribers = []
-    
-    async def publish_event(self, event: str):
-        """Publish event to all subscribers."""
-        await self.event_agent.publish(event)
+# LLM using memory tools
+response = await assistant.on_messages([
+    ToolCallMessage(
+        tool_name="store_memory",
+        tool_input={
+            "content": "User preference: dark mode",
+            "metadata": {"type": "preference"}
+        }
+    )
+])
+
+# Recalling information
+response = await assistant.on_messages([
+    ToolCallMessage(
+        tool_name="recall_memory",
+        tool_input={
+            "query": "user preferences",
+            "limit": 5
+        }
+    )
+])
 ```
 
-### Conversational Workflows
+## System Message Enhancement
+
+The assistant automatically enhances the system message with memory context:
+
 ```python
-class GroupChatWorkflow:
-    def __init__(self):
-        self.agents = [
-            MemoryEnabledAssistant("assistant_1"),
-            MemoryEnabledAssistant("assistant_2")
-        ]
-        self.memory = MemoryManager()
-    
-    async def start_conversation(self, topic: str):
-        """Start a group conversation."""
-        pass
+# Base system message
+base_message = """You are a helpful AI assistant with memory capabilities..."""
+
+# Enhanced with context
+system_message = f"""{base_message}
+
+When using memory tools (store_memory, recall_memory), use:
+{context_str}
+"""
 ```
 
-## Memory Integration
+## Resource Management
 
-### mem0 Enhancement
 ```python
-class BaseMemoryAgent(AssistantAgent):
-    def __init__(self):
-        super().__init__()
-        self.memory = MemoryManager()  # mem0-based memory
-    
-    async def process_message(self, message: Message):
-        """Process message with memory context."""
-        context = await self.memory.get_context()
-        return await super().process_message(message, context=context)
+class MemoryEnabledAssistant:
+    def close(self):
+        """Cleanup memory resources."""
+        if self._memory_manager:
+            self._memory_manager.close()
+
+    def __del__(self):
+        """Ensure cleanup during garbage collection."""
+        self.close()
 ```
 
-## Usage Examples
+## Best Practices
 
-### Event-Driven Pattern
-```python
-# Create event-driven workflow
-event_agent = EventAgent()
-worker_agent = EventAgent()
+1. **Memory Operations**
+   - Use memory tools for storage/retrieval
+   - Let the LLM manage memory operations
+   - Provide clear context in system message
 
-# Subscribe to events
-await event_agent.subscribe("task_complete", worker_agent)
+2. **Configuration**
+   - Initialize memory at agent creation
+   - Provide complete context information
+   - Handle cleanup properly
 
-# Publish events
-await event_agent.publish("task_complete", {"status": "success"})
-```
+3. **Message Handling**
+   - Use adapter pattern consistently
+   - Let base class handle core functionality
+   - Maintain message context
 
-### Group Chat Pattern
-```python
-# Create conversational workflow
-assistant1 = MemoryEnabledAssistant("research")
-assistant2 = MemoryEnabledAssistant("writing")
+4. **Resource Management**
+   - Close memory resources explicitly
+   - Clean up in destructor as backup
+   - Monitor memory usage
 
-# Start group chat
-group_chat = GroupChat(agents=[assistant1, assistant2])
-await group_chat.start("Write a research paper")
+## Note on BaseMemoryAgent
+
+The `BaseMemoryAgent` class exists but is not fully tested and may be outdated. For production use, prefer `MemoryEnabledAssistant` which has been thoroughly tested and maintains memory operations through tools.
