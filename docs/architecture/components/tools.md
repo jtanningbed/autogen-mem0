@@ -1,174 +1,178 @@
-# Tools Documentation
+# Tool System Documentation
 
 ## Overview
 
-Our tool system implements a compatible interface with AutoGen's tool protocols while maintaining our own independent implementation. Tools are designed to be modular, secure, and easily extensible.
+The tool system in autogen-mem0 extends AutoGen's tool framework with memory-specific operations and enhanced configuration capabilities.
 
 ## Core Components
 
-### Base Tool Implementation
+### Base Tool
 
 ```python
-from anthropic_autogen.core.tools import BaseTool
+from autogen_core.components.tools import Tool, ToolSchema
+from autogen_mem0.core.tools import BaseTool
 
-class BaseTool:
-    """Base class for all tools in the system."""
+class BaseTool(Tool):
+    """Base class for all tools."""
     
     def __init__(self, name: str, description: str):
         self.name = name
         self.description = description
-        self.schema = None
-    
-    def execute(self, **kwargs):
-        """Execute the tool with given parameters."""
-        raise NotImplementedError
+        self.schema = self._build_schema()
+
+    @abstractmethod
+    async def execute(
+        self,
+        **kwargs: Any
+    ) -> Any:
+        """Execute the tool's functionality."""
+        pass
+
+    def _build_schema(self) -> ToolSchema:
+        """Build the tool's schema."""
+        pass
 ```
 
-### Tool Schema
-```python
-from autogen_core.components.tools import ToolSchema
+## Memory Tools
 
+### StoreMemoryTool
+
+```python
+class StoreMemoryTool(BaseTool):
+    """Tool for storing information in memory."""
+    
+    def __init__(self, memory: Memory):
+        super().__init__(
+            name="store_memory",
+            description="Store information in memory"
+        )
+        self._memory = memory
+
+    async def execute(
+        self,
+        content: str,
+        metadata: Optional[Dict] = None
+    ) -> str:
+        await self._memory.add(
+            messages=content,
+            metadata=metadata
+        )
+        return "Successfully stored in memory"
+```
+
+### RecallMemoryTool
+
+```python
+class RecallMemoryTool(BaseTool):
+    """Tool for retrieving information from memory."""
+    
+    def __init__(self, memory: Memory):
+        super().__init__(
+            name="recall_memory",
+            description="Recall information from memory"
+        )
+        self._memory = memory
+
+    async def execute(
+        self,
+        query: str,
+        limit: int = 5
+    ) -> List[str]:
+        return await self._memory.search(
+            query=query,
+            limit=limit
+        )
+```
+
+## Tool Registration
+
+```python
+class MemoryEnabledAssistant:
+    def __init__(self, config: AgentConfig):
+        self._tools = [
+            StoreMemoryTool(self._memory),
+            RecallMemoryTool(self._memory)
+        ]
+```
+
+## Tool Execution
+
+### Direct Usage
+
+```python
+# Create and use tool directly
+tool = StoreMemoryTool(memory)
+result = await tool.execute(
+    content="Important information",
+    metadata={"type": "note"}
+)
+```
+
+### Through Agent
+
+```python
+# Agent using tool
+response = await agent.on_messages([
+    ToolCallMessage(
+        tool_name="store_memory",
+        tool_input={
+            "content": "Remember this",
+            "metadata": {"type": "note"}
+        }
+    )
+])
+```
+
+## Tool Development
+
+### Creating New Tools
+
+```python
 class CustomTool(BaseTool):
     def __init__(self):
         super().__init__(
             name="custom_tool",
-            description="Custom tool implementation"
+            description="Custom functionality"
         )
-        self.schema = ToolSchema(
+
+    def _build_schema(self) -> ToolSchema:
+        return ToolSchema(
             name=self.name,
             description=self.description,
             parameters={
-                "param1": {"type": "string"},
-                "param2": {"type": "integer"}
+                "param1": "str",
+                "param2": "int"
             }
         )
-```
 
-## Built-in Tools
-
-### FileTool
-```python
-class FileTool(BaseTool):
-    """File operations tool."""
-    
-    def __init__(self):
-        super().__init__(
-            name="file_tool",
-            description="File operations"
-        )
-    
-    def read(self, path: str) -> str:
-        """Read file contents."""
-        pass
-    
-    def write(self, path: str, content: str):
-        """Write to file."""
+    async def execute(self, **kwargs) -> Any:
+        # Implement custom logic
         pass
 ```
 
-### ShellTool
-```python
-class ShellTool(BaseTool):
-    """Shell command execution tool."""
-    
-    def __init__(self):
-        super().__init__(
-            name="shell_tool",
-            description="Execute shell commands"
-        )
-    
-    def execute(self, command: str) -> str:
-        """Execute shell command."""
-        pass
-```
+## Best Practices
 
-### WebTool
-```python
-class WebTool(BaseTool):
-    """Web interaction tool."""
-    
-    def __init__(self):
-        super().__init__(
-            name="web_tool",
-            description="Web operations"
-        )
-    
-    def get(self, url: str) -> str:
-        """HTTP GET request."""
-        pass
-    
-    def post(self, url: str, data: dict) -> str:
-        """HTTP POST request."""
-        pass
-```
+1. **Tool Design**
+   - Clear, focused functionality
+   - Well-defined schemas
+   - Proper error handling
 
-## AutoGen Compatibility
+2. **Memory Tool Usage**
+   - Appropriate metadata
+   - Meaningful queries
+   - Resource cleanup
 
-### Tool Registration
-```python
-def register_with_autogen(self) -> dict:
-    """Convert tool to AutoGen format."""
-    return {
-        "name": self.name,
-        "description": self.description,
-        "parameters": self.schema.parameters
-    }
-```
+3. **Error Handling**
+   - Graceful failure
+   - Informative messages
+   - State cleanup
 
-### Function Calling
-```python
-def handle_autogen_call(self, **kwargs):
-    """Handle tool call from AutoGen."""
-    return self.execute(**kwargs)
-```
+4. **Performance**
+   - Async operations
+   - Resource management
+   - Caching when appropriate
 
-## Security
-
-### Access Control
-- Tool permissions system
-- Execution environment isolation
-- Input validation
-
-### Rate Limiting
-```python
-class RateLimitedTool(BaseTool):
-    def __init__(self, rate_limit: int):
-        self.rate_limit = rate_limit
-        self.calls = []
-    
-    def check_rate_limit(self):
-        """Check if tool has exceeded rate limit."""
-        pass
-```
-
-## Usage Examples
-
-### Creating Custom Tool
-```python
-from anthropic_autogen.core.tools import BaseTool
-
-class MyTool(BaseTool):
-    def __init__(self):
-        super().__init__(
-            name="my_tool",
-            description="Custom functionality"
-        )
-    
-    def execute(self, **kwargs):
-        # Implementation
-        pass
-```
-
-### Using Tools
-```python
-# Create tool instance
-file_tool = FileTool()
-
-# Execute tool
-result = file_tool.execute(
-    operation="read",
-    path="/path/to/file"
-)
-
-# Use with AutoGen
-autogen_format = file_tool.register_with_autogen()
+5. **Security**
+   - Input validation
+   - Access control
+   - Safe execution
