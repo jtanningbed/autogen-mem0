@@ -1,3 +1,7 @@
+
+from typing import Any, Optional
+from pydantic import BaseModel, Field
+
 # Input/Output Models
 class Entity(BaseModel):
     """Entity in a graph relationship."""
@@ -9,12 +13,12 @@ class Entity(BaseModel):
 
 class StoreMemoryInput(BaseModel):
     """Input for storing a memory."""
-    messages: Union[str, List[Dict[str, str]]] = Field(description="Content to store in memory. Can be a string or a list of message dicts with 'role' and 'content' keys")
-    metadata: Optional[Dict[str, Any]] = Field(description="Additional metadata to store", default=None)
+    messages: str | list[dict[str, str]] = Field(description="Content to store in memory. Can be a string or a list of message dicts with 'role' and 'content' keys")
+    metadata: Optional[dict[str, Any]] = Field(description="Additional metadata to store", default=None)
     user_id: Optional[str] = Field(description="User ID associated with memory", default=None)
     agent_id: Optional[str] = Field(description="Agent ID associated with memory", default=None)
     run_id: Optional[str] = Field(description="Run ID associated with memory", default=None)
-    filters: Optional[Dict[str, Any]] = Field(description="Additional filters for storage", default=None)
+    filters: Optional[dict[str, Any]] = Field(description="Additional filters for storage", default=None)
 
 class StoreRelationshipInput(BaseModel):
     """Input for storing a relationship in graph memory."""
@@ -75,13 +79,13 @@ class RecallMemoryInput(BaseModel):
     user_id: Optional[str] = Field(description="User ID associated with memory", default=None)
     agent_id: Optional[str] = Field(description="Agent ID associated with memory", default=None)
     run_id: Optional[str] = Field(description="Run ID associated with memory", default=None)
-    filters: Optional[Dict[str, Any]] = Field(description="Additional filters for recall. These narrow the search scope to memory items that were stored with specific metadata", default=None)
+    filters: Optional[dict[str, Any]] = Field(description="Additional filters for recall. These narrow the search scope to memory items that were stored with specific metadata", default=None)
 
 class StoreMemoryOutput(BaseModel):
     """Output from storing a memory."""
     # id: str = Field(description="ID of stored memory")
     # content: Any = Field(description="Stored content")
-    # metadata: Optional[Dict[str, Any]] = Field(description="Associated metadata", default=None)
+    # metadata: Optional[dict[str, Any]] = Field(description="Associated metadata", default=None)
     results: Optional[Any] = Field(description="Results from vector store", default=None)
     relations: Optional[Any] = Field(description="Results from graph store", default=None)
 
