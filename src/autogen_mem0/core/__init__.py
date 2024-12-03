@@ -5,7 +5,6 @@ Core components for the autogen-mem0 framework.
 from .agents import (
     AgentConfig,
     EventAgent,
-    MessageAdapter,
     BaseMemoryAgent,
     MemoryEnabledAssistant,
 )
@@ -67,7 +66,6 @@ __all__ = [
     # Agents
     "AgentConfig",
     "EventAgent",
-    "MessageAdapter",
     "BaseMemoryAgent",
     "MemoryEnabledAssistant",
     # Messages

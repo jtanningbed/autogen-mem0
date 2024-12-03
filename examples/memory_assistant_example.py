@@ -14,13 +14,13 @@ from openai import OpenAI
 
 from autogen_core.base import CancellationToken
 from autogen_agentchat.messages import TextMessage
-from autogen_core.components.models import UserMessage
+from autogen_core.components.models import UserMessage, FunctionExecutionResultMessage
+
 from autogen_mem0.core.config.manager import ConfigManager
 from autogen_mem0.core.agents import AgentConfig, MemoryEnabledAssistant
 from autogen_mem0.core.messaging import TextMessage as AutogenTextMessage
 from autogen_mem0.models import AnthropicChatCompletionClient
 from autogen_mem0.models._model_info import resolve_model, calculate_cost, get_model_pricing
-from autogen_core.components.models import FunctionExecutionResultMessage
 from autogen_mem0.core.adapters import MessageAdapterFactory
 import logging
 
@@ -493,7 +493,7 @@ async def main():
     ]
 
     # build agentchat messages from factory
-    agentchat_messages = MessageAdapterFactory.adapt(messages, "anthropic_autogen.core.messaging.ChatMessage", "autogen_agentchat.messages.ChatMessage")
+    agentchat_messages = MessageAdapterFactory.adapt(messages, "autogen_mem0.core.messaging.ChatMessage", "autogen_agentchat.messages.ChatMessage")
 
     # Process initial messages
     for message in agentchat_messages:

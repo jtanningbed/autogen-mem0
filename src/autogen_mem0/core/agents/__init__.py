@@ -2,12 +2,11 @@
 Core agent implementations.
 """
 
-from ._base import AgentConfig, EventAgent, MessageAdapter, BaseMemoryAgent, MemoryEnabledAssistant
+from ._base import AgentConfig, EventAgent, BaseMemoryAgent, MemoryEnabledAssistant
 
 __all__ = [
     "AgentConfig",
     "EventAgent",
-    "MessageAdapter",
     "BaseMemoryAgent",
     "MemoryEnabledAssistant",
 ]
